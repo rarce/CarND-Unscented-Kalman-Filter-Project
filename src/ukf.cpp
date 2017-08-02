@@ -86,12 +86,72 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-  TODO:
+  /*****************************************************************************
+   *  Initialization
+   ****************************************************************************/
+  if (!is_initialized_)
+  {
+    /**
+      * Initialize the state ukf_.x_ with the first measurement.
+      * Create the covariance matrix.
+    */
+    // first measurement
+    if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+    {
+      /**
+      Convert radar from polar to cartesian coordinates and initialize state.
+      */
+      float ro = meas_package.raw_measurements_[0];
+      float theta = meas_package.raw_measurements_[1];
+      float ro_dot = meas_package.raw_measurements_[2];
 
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
+      x_ << ro * cos(theta);
+      x_ << ro * sin(theta);
+      x_ << ro_dot * cos(theta);
+      x_ << ro_dot * sin(theta);
+      x_ << 0;
+    }
+    else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+    {
+      /**
+      Initialize state.
+      */
+      x_ << meas_package.raw_measurements_[0], meas_package.raw_measurements_[1], 0, 0, 0;
+    }
+
+    // initial covariance matrix P
+    P_ << 1, 0, 0, 0, 0,
+          0, 1, 0, 0, 0,
+          0, 0, 1, 0, 0,
+          0, 0, 0, 1, 0,
+          0, 0, 0, 0, 1;
+
+    // set weights
+    weights_(0) = lambda_ / (lambda_ + n_aug_);
+    for (int i = 1; i < weights_.size(); i++) {
+      weights_(i) = 0.5 / (lambda_ + n_aug_);
+    }
+
+    time_us_ = meas_package.timestamp_;
+    // done initializing, no need to predict or update
+    is_initialized_ = true;
+    return;
+  }
+  
+  /*****************************************************************************
+   *  Prediction
+   ****************************************************************************/
+  float dt = (meas_package.timestamp_ - time_us_) / 1000000.0; //dt - expressed in seconds
+  time_us_ = meas_package.timestamp_;
+  Prediction(dt);
+
+  /*****************************************************************************
+   *  Update
+   ****************************************************************************/
+  if (use_radar_ && meas_package.sensor_type_ == MeasurementPackage::RADAR)
+    UpdateRadar(meas_package);
+  else if (use_laser_ && meas_package.sensor_type_ == MeasurementPackage::LASER)
+    UpdateLidar(meas_package);
 }
 
 /**
