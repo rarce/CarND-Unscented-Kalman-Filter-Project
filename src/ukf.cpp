@@ -11,6 +11,21 @@ using std::vector;
  * Initializes Unscented Kalman filter
  */
 UKF::UKF() {
+  // set the state dimension
+  n_x_ = 5;
+
+  //set augmented dimension
+  n_aug_ = 7;
+
+  //define spreading parameter
+  lambda_= 3 - n_aug_;
+
+  // create matrix with predicted sigma points as columns
+  Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
+
+  // create vector for weights
+  weights_ = VectorXd(2 * n_aug_ + 1);
+
   // if this is false, laser measurements will be ignored (except during init)
   use_laser_ = true;
 
@@ -18,10 +33,10 @@ UKF::UKF() {
   use_radar_ = true;
 
   // initial state vector
-  x_ = VectorXd(5);
+  x_ = VectorXd(n_x_);
 
   // initial covariance matrix
-  P_ = MatrixXd(5, 5);
+  P_ = MatrixXd(n_x_, n_x_);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 30;
@@ -44,13 +59,24 @@ UKF::UKF() {
   // Radar measurement noise standard deviation radius change in m/s
   std_radrd_ = 0.3;
 
-  /**
-  TODO:
+  // Measurement noise covariance matrices initialization
+  R_radar_ = MatrixXd(3, 3);
+  R_radar_ << std_radr_*std_radr_, 0, 0,
+              0, std_radphi_*std_radphi_, 0,
+              0, 0,std_radrd_*std_radrd_;
+  R_lidar_ = MatrixXd(2, 2);
+  R_lidar_ << std_laspx_*std_laspx_,0,
+              0,std_laspy_*std_laspy_;
 
-  Complete the initialization. See ukf.h for other member properties.
+  // the current NIS for radar
+  NIS_radar_ = 0.0;
 
-  Hint: one or more values initialized above might be wildly off...
-  */
+  // the current NIS for laser
+  NIS_laser_ = 0.0;
+
+  // setup with type of sensors use
+  use_laser_ = true;
+  use_radar_ = true;
 }
 
 UKF::~UKF() {}
